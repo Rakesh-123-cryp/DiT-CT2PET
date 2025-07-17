@@ -225,7 +225,7 @@ def main(args):
     #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
     # ])
     
-    dataset = ImagePairDataset(args.data_path + "/A", args.root_data + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
+    dataset = ImagePairDataset(args.data_path + "/A", args.data_path + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
         dataset,
         num_replicas=dist.get_world_size(),
