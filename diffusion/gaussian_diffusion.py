@@ -712,7 +712,7 @@ class GaussianDiffusion:
         output = th.where((t == 0), decoder_nll, kl)
         return {"output": output, "pred_xstart": out["pred_xstart"]}
 
-    def training_losses(self, model, x_start, t, model_kwargs=None, noise=None):
+    def training_losses(self, model, x_start, t, gt,model_kwargs=None, noise=None):
         """
         Compute training losses for a single timestep.
         :param model: the model to evaluate loss on.
@@ -735,7 +735,7 @@ class GaussianDiffusion:
         if self.loss_type == LossType.KL or self.loss_type == LossType.RESCALED_KL:
             terms["loss"] = self._vb_terms_bpd(
                 model=model,
-                x_start=model_kwargs['gt'], #x_start,
+                x_start=gt, #x_start,
                 x_t=x_t,
                 t=t,
                 clip_denoised=False,
@@ -758,7 +758,7 @@ class GaussianDiffusion:
                 frozen_out = th.cat([model_output.detach(), model_var_values], dim=1)
                 terms["vb"] = self._vb_terms_bpd(
                     model=lambda *args, r=frozen_out: r,
-                    x_start=model_kwargs['gt'], #x_start,
+                    x_start=gt, #x_start,
                     x_t=x_t,
                     t=t,
                     clip_denoised=False,
@@ -770,9 +770,9 @@ class GaussianDiffusion:
 
             target = {
                 ModelMeanType.PREVIOUS_X: self.q_posterior_mean_variance(
-                    x_start=model_kwargs['gt'], x_t=x_t, t=t
+                    x_start=gt, x_t=x_t, t=t
                 )[0],
-                ModelMeanType.START_X: model_kwargs['gt'], ##
+                ModelMeanType.START_X: gt, ##
                 ModelMeanType.EPSILON: noise,
             }[self.model_mean_type]
             assert model_output.shape == target.shape == x_start.shape
