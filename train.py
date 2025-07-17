@@ -31,7 +31,69 @@ from models import DiT_models
 from diffusion import create_diffusion
 from diffusers.models import AutoencoderKL
 
-
+#################################################################################
+#                             Dataset Loader                                    #
+#################################################################################
+class ImagePairDataset(Dataset):
+    """
+    Dataset for paired input and ground truth images.
+    
+    Args:
+        input_dir: Directory containing input images
+        gt_dir: Directory containing ground truth images
+        image_size: Size for center cropping (default: 256)
+        transform: Optional transform to apply to both images
+    """
+    
+    def __init__(self, input_dir, gt_dir, image_size=256, transform=None):
+        self.input_dir = input_dir
+        self.gt_dir = gt_dir
+        self.image_size = image_size
+        
+        # Get list of image files (assuming same filenames in both directories)
+        self.image_files = [f for f in os.listdir(input_dir) 
+                           if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff'))]
+        
+        # Define the transform if not provided
+        if transform is None:
+            self.transform = transforms.Compose([
+                transforms.Resize(256),
+                transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, image_size)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
+            ])
+        else:
+            self.transform = transform
+    
+    def __len__(self):
+        return len(self.image_files)
+    
+    def __getitem__(self, idx):
+        # Get filename
+        filename = self.image_files[idx]
+        
+        # Load input and ground truth images
+        input_path = os.path.join(self.input_dir, filename)
+        gt_path = os.path.join(self.gt_dir, filename)
+        
+        # Load images
+        input_image = Image.open(input_path).convert('RGB')
+        gt_image = Image.open(gt_path).convert('RGB')
+        
+        # Apply the same random seed for synchronized transforms
+        seed = torch.initial_seed()
+        
+        # Apply transform to input image
+        torch.manual_seed(seed)
+        input_tensor = self.transform(input_image)
+        
+        # Apply transform to ground truth image
+        torch.manual_seed(seed)
+        gt_tensor = self.transform(gt_image)
+        
+        return input_tensor, gt_tensor
+    
 #################################################################################
 #                             Training Helper Functions                         #
 #################################################################################
@@ -155,13 +217,15 @@ def main(args):
     opt = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0)
 
     # Setup data:
-    transform = transforms.Compose([
-        transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, args.image_size)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
-    ])
-    dataset = ImageFolder(args.data_path, transform=transform)
+    # transform = transforms.Compose([
+    #     transforms.Resize(256),
+    #     transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, args.image_size)),
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
+    # ])
+    
+    dataset = ImagePairDataset(args.data_path + "/input", args.root_data + "/gt", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
         dataset,
         num_replicas=dist.get_world_size(),
@@ -202,7 +266,7 @@ def main(args):
                 # Map input images to latent space + normalize latents:
                 x = vae.encode(x).latent_dist.sample().mul_(0.18215)
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
-            model_kwargs = dict(y=y)
+            model_kwargs = {"gt": y, 'y': torch.zeros(x.shape[0])}#dict(y=y)
             loss_dict = diffusion.training_losses(model, x, t, model_kwargs)
             loss = loss_dict["loss"].mean()
             opt.zero_grad()
@@ -256,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--data-path", type=str, required=True)
     parser.add_argument("--results-dir", type=str, default="results")
     parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
-    parser.add_argument("--image-size", type=int, choices=[256, 512], default=256)
+    parser.add_argument("--image-size", type=int, choices=[128, 256, 512], default=128)
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=1400)
     parser.add_argument("--global-batch-size", type=int, default=256)
