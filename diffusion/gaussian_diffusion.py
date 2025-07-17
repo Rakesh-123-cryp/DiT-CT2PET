@@ -770,7 +770,7 @@ class GaussianDiffusion:
 
             target = {
                 ModelMeanType.PREVIOUS_X: self.q_posterior_mean_variance(
-                    x_start=model_kwargs['gt'],, x_t=x_t, t=t
+                    x_start=model_kwargs['gt'], x_t=x_t, t=t
                 )[0],
                 ModelMeanType.START_X: model_kwargs['gt'], ##
                 ModelMeanType.EPSILON: noise,
