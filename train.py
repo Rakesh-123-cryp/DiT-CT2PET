@@ -13,7 +13,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
