@@ -45,7 +45,7 @@ class ImagePairDataset(Dataset):
         transform: Optional transform to apply to both images
     """
     
-    def __init__(self, input_dir, gt_dir, image_size=256, transform=None):
+    def __init__(self, input_dir, gt_dir, image_size=128, transform=None):
         self.input_dir = input_dir
         self.gt_dir = gt_dir
         self.image_size = image_size
@@ -57,7 +57,7 @@ class ImagePairDataset(Dataset):
         # Define the transform if not provided
         if transform is None:
             self.transform = transforms.Compose([
-                transforms.Resize(256),
+                transforms.Resize(128),
                 transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, image_size)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
