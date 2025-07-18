@@ -225,7 +225,7 @@ def main(args):
     #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
     # ])
     if args.ckpt_path is not None:
-        model, ema, opt, train_steps = load_checkpoint_into_models(args.ckpt_path, model, ema, opt, "cuda")
+        model, ema, opt = load_checkpoint_into_models(args.ckpt_path, model, ema, opt, "cuda")
         
     dataset = ImagePairDataset(args.data_path + "/A", args.data_path + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
@@ -360,16 +360,7 @@ def load_checkpoint_into_models(checkpoint_path, model, ema, optimizer, device='
     else:
         print("Warning: No optimizer state found in checkpoint")
     
-    # Extract training step from checkpoint filename
-    train_steps = 0
-    try:
-        filename = os.path.basename(checkpoint_path)
-        train_steps = int(filename.split('.')[0])
-        print(f"Loaded checkpoint from step {train_steps}")
-    except:
-        print("Warning: Could not extract training step from filename")
-    
-    return model, ema, optimizer, train_steps
+    return model, ema, optimizer
 
 if __name__ == "__main__":
     # Default args here will train DiT-XL/2 with the hyperparameters we used in our paper (except training iters).
