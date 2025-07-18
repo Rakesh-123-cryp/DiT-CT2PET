@@ -265,7 +265,7 @@ def main(args):
             with torch.no_grad():
                 # Map input images to latent space + normalize latents:
                 x = vae.encode(x).latent_dist.sample().mul_(0.18215)
-                y = vae.encode(x).latent_dist.sample().mul_(0.18215)
+                y = vae.encode(y).latent_dist.sample().mul_(0.18215)
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
             model_kwargs = {'y': torch.zeros(x.shape[0], dtype=torch.long, device=device)}#dict(y=y)
             loss_dict = diffusion.training_losses(model, x, t, y, model_kwargs)
