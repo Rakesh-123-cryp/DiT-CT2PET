@@ -226,6 +226,7 @@ def main(args):
     # ])
     if args.ckpt_path is not None:
         model, ema, opt, train_steps = load_checkpoint_into_models(args.ckpt_path, model, ema, opt, device)
+        
     dataset = ImagePairDataset(args.data_path + "/A", args.data_path + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
         dataset,
@@ -334,6 +335,7 @@ def load_checkpoint_into_models(checkpoint_path, model, ema, optimizer, device='
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
     
+    print(torch.load)
     # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
