@@ -224,7 +224,8 @@ def main(args):
     #     transforms.ToTensor(),
     #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
     # ])
-    
+    if args.ckpt_path is not None:
+        model, ema, opt, train_steps = load_checkpoint_into_models(args.ckpt_path, model, ema, opt, device)
     dataset = ImagePairDataset(args.data_path + "/A", args.data_path + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
         dataset,
@@ -316,6 +317,57 @@ def main(args):
     logger.info("Done!")
     cleanup()
 
+def load_checkpoint_into_models(checkpoint_path, model, ema, optimizer, device='cuda'):
+    """
+    Load checkpoint state into existing model, EMA, and optimizer instances.
+    
+    Args:
+        checkpoint_path (str): Path to the checkpoint file
+        model: The model instance to load weights into
+        ema: The EMA model instance to load weights into
+        optimizer: The optimizer instance to load state into
+        device (str): Device to load the checkpoint on
+        
+    Returns:
+        tuple: (model, ema, optimizer) with loaded states
+    """
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(f"Checkpoint not found at {checkpoint_path}")
+    
+    # Load checkpoint
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    
+    # Load model state
+    if 'model' in checkpoint:
+        model.load_state_dict(checkpoint['model'])
+        print("Loaded model weights")
+    else:
+        print("Warning: No model weights found in checkpoint")
+    
+    # Load EMA state
+    if 'ema' in checkpoint:
+        ema.load_state_dict(checkpoint['ema'])
+        print("Loaded EMA weights")
+    else:
+        print("Warning: No EMA weights found in checkpoint")
+    
+    # Load optimizer state
+    if 'opt' in checkpoint:
+        optimizer.load_state_dict(checkpoint['opt'])
+        print("Loaded optimizer state")
+    else:
+        print("Warning: No optimizer state found in checkpoint")
+    
+    # Extract training step from checkpoint filename
+    train_steps = 0
+    try:
+        filename = os.path.basename(checkpoint_path)
+        train_steps = int(filename.split('.')[0])
+        print(f"Loaded checkpoint from step {train_steps}")
+    except:
+        print("Warning: Could not extract training step from filename")
+    
+    return model, ema, optimizer, train_steps
 
 if __name__ == "__main__":
     # Default args here will train DiT-XL/2 with the hyperparameters we used in our paper (except training iters).
@@ -325,6 +377,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
     parser.add_argument("--image-size", type=int, choices=[128, 256, 512], default=128)
     parser.add_argument("--num-classes", type=int, default=1000)
+    parser.add_argument("--ckpt-path", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=1400)
     parser.add_argument("--global-batch-size", type=int, default=32)
     parser.add_argument("--global-seed", type=int, default=0)
