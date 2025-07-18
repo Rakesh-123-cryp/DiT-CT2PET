@@ -341,7 +341,7 @@ def load_checkpoint_into_models(checkpoint_path, model, ema, optimizer, device='
     
     # Load model state
     if 'model' in checkpoint:
-        model.load_state_dict(checkpoint['model'])
+        model.module.load_state_dict(checkpoint['model'])
         print("Loaded model weights")
     else:
         print("Warning: No model weights found in checkpoint")
