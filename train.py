@@ -337,7 +337,7 @@ def load_checkpoint_into_models(checkpoint_path, model, ema, optimizer, device='
     
     print(torch.load)
     # Load checkpoint
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
     # Load model state
     if 'model' in checkpoint:
