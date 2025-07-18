@@ -377,7 +377,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
     parser.add_argument("--image-size", type=int, choices=[128, 256, 512], default=128)
     parser.add_argument("--num-classes", type=int, default=1000)
-    parser.add_argument("--ckpt-path", type=int, default=None)
+    parser.add_argument("--ckpt-path", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=1400)
     parser.add_argument("--global-batch-size", type=int, default=32)
     parser.add_argument("--global-seed", type=int, default=0)
