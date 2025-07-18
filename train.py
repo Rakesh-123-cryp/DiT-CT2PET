@@ -225,7 +225,7 @@ def main(args):
     #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
     # ])
     if args.ckpt_path is not None:
-        model, ema, opt, train_steps = load_checkpoint_into_models(args.ckpt_path, model, ema, opt, device)
+        model, ema, opt, train_steps = load_checkpoint_into_models(args.ckpt_path, model, ema, opt, "cuda")
         
     dataset = ImagePairDataset(args.data_path + "/A", args.data_path + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
