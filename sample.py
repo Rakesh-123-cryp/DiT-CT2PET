@@ -58,7 +58,7 @@ def main(args):
 
     # Create sampling noise:
     n = len(class_labels)
-    z = vae.encode(x).latent_dist.sample().mul_(0.18215)#torch.randn(n, 4, latent_size, latent_size, device=device)
+    z = vae.encode(input_image).latent_dist.sample().mul_(0.18215)#torch.randn(n, 4, latent_size, latent_size, device=device)
     y = torch.tensor(class_labels, device=device)
 
     # Setup classifier-free guidance:
