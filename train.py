@@ -13,7 +13,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
@@ -45,7 +45,7 @@ class ImagePairDataset(Dataset):
         transform: Optional transform to apply to both images
     """
     
-    def __init__(self, input_dir, gt_dir, image_size=256, transform=None):
+    def __init__(self, input_dir, gt_dir, image_size=128, transform=None):
         self.input_dir = input_dir
         self.gt_dir = gt_dir
         self.image_size = image_size
@@ -57,8 +57,8 @@ class ImagePairDataset(Dataset):
         # Define the transform if not provided
         if transform is None:
             self.transform = transforms.Compose([
-                transforms.Resize(256),
-                transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, image_size)),
+                transforms.Resize(128),
+                # transforms.Lambda(lambda pil_image: center_crop_arr(pil_image, image_size)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
@@ -225,7 +225,7 @@ def main(args):
     #     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5], inplace=True)
     # ])
     
-    dataset = ImagePairDataset(args.data_path + "/input", args.root_data + "/gt", image_size=128)#ImageFolder(args.data_path, transform=transform)
+    dataset = ImagePairDataset(args.data_path + "/A", args.data_path + "/B", image_size=128)#ImageFolder(args.data_path, transform=transform)
     sampler = DistributedSampler(
         dataset,
         num_replicas=dist.get_world_size(),
@@ -325,11 +325,11 @@ if __name__ == "__main__":
     parser.add_argument("--image-size", type=int, choices=[128, 256, 512], default=128)
     parser.add_argument("--num-classes", type=int, default=1000)
     parser.add_argument("--epochs", type=int, default=1400)
-    parser.add_argument("--global-batch-size", type=int, default=256)
+    parser.add_argument("--global-batch-size", type=int, default=32)
     parser.add_argument("--global-seed", type=int, default=0)
     parser.add_argument("--vae", type=str, choices=["ema", "mse"], default="ema")  # Choice doesn't affect training
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=100)
-    parser.add_argument("--ckpt-every", type=int, default=50_000)
+    parser.add_argument("--ckpt-every", type=int, default=10_000)
     args = parser.parse_args()
     main(args)
