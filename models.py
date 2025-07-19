@@ -325,6 +325,7 @@ class DiT(nn.Module):
         x = self.x_embedder(x) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
         t = self.t_embedder(t)                   # (N, D)
         condition = self.x_embedder(y) + self.pos_embed_cond     # y = self.y_embedder(y, self.training)    # (N, D)
+        print(condition.shape)
         c = t + condition                          # (N, D)
         for block in self.blocks:
             x = block(x, c)                        # (N, T, D)
