@@ -315,7 +315,6 @@ class GaussianDiffusion:
             return x
 
         if self.model_mean_type == ModelMeanType.START_X:
-            print("###################################################")
             pred_xstart = process_xstart(model_output)
         else:
             pred_xstart = process_xstart(
