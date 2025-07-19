@@ -87,7 +87,7 @@ class ImagePairDataset(Dataset):
         # Apply transform to input image
         torch.manual_seed(seed)
         input_tensor = self.transform(input_image)
-        
+        input_image = input_image.repeat(3, 1, 1)
         # Apply transform to ground truth image
         torch.manual_seed(seed)
         gt_tensor = self.transform(gt_image)
