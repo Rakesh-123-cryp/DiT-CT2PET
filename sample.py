@@ -41,7 +41,7 @@ def main(args):
     ).to(device)
     
     #Read the image
-    input_image = Image.open(input_path).convert('RGB')
+    input_image = Image.open(args.image_path).convert('RGB')
     input_image = TF.to_tensor(input_image)
     input_image = TF.resize(input_image, (args.image_size, args.image_size))
     
