@@ -78,16 +78,15 @@ class ImagePairDataset(Dataset):
         gt_path = os.path.join(self.gt_dir, filename)
         
         # Load images
-        input_image = Image.open(input_path).convert('L')
-        gt_image = Image.open(gt_path).convert('L')
-        
+        input_image = Image.open(input_path).convert('RGB')
+        gt_image = Image.open(gt_path).convert('RGB')
+
         # Apply the same random seed for synchronized transforms
         seed = torch.initial_seed()
         
         # Apply transform to input image
         torch.manual_seed(seed)
         input_tensor = self.transform(input_image)
-        input_image = input_image.repeat(3, 1, 1)
         # Apply transform to ground truth image
         torch.manual_seed(seed)
         gt_tensor = self.transform(gt_image)
