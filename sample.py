@@ -72,7 +72,7 @@ def main(args):
     samples = diffusion.p_sample_loop(
         model.forward, z.shape, z, clip_denoised=False, model_kwargs=model_kwargs, progress=True, device=device
     )
-    samples, _ = samples.chunk(2, dim=0)  # Remove null class samples
+    # samples, _ = samples.chunk(2, dim=0)  # Remove null class samples
     samples = vae.decode(samples / 0.18215).sample
 
     # Save and display images:
