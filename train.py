@@ -78,8 +78,8 @@ class ImagePairDataset(Dataset):
         gt_path = os.path.join(self.gt_dir, filename)
         
         # Load images
-        input_image = Image.open(input_path).convert('RGB')
-        gt_image = Image.open(gt_path).convert('RGB')
+        input_image = Image.open(input_path).convert('L')
+        gt_image = Image.open(gt_path).convert('L')
         
         # Apply the same random seed for synchronized transforms
         seed = torch.initial_seed()
@@ -267,7 +267,9 @@ def main(args):
             with torch.no_grad():
                 # Map input images to latent space + normalize latents:
                 x = vae.encode(x).latent_dist.sample().mul_(0.18215)
+                print("########", x.shape)
                 y = vae.encode(y).latent_dist.sample().mul_(0.18215)
+                print("########", y.shape)
             t = torch.randint(0, diffusion.num_timesteps, (x.shape[0],), device=device)
             model_kwargs = {'y': torch.zeros(x.shape[0], dtype=torch.long, device=device)}#dict(y=y)
             loss_dict = diffusion.training_losses(model, x, t, y, model_kwargs)
@@ -369,7 +371,7 @@ if __name__ == "__main__":
     parser.add_argument("--results-dir", type=str, default="results")
     parser.add_argument("--model", type=str, choices=list(DiT_models.keys()), default="DiT-XL/2")
     parser.add_argument("--image-size", type=int, choices=[128, 256, 512], default=128)
-    parser.add_argument("--num-classes", type=int, default=1000)
+    parser.add_argument("--num-classes", type=int, default=1)
     parser.add_argument("--ckpt-path", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=1400)
     parser.add_argument("--global-batch-size", type=int, default=32)
