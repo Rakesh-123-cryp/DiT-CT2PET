@@ -252,7 +252,8 @@ class DiT(nn.Module):
         num_patches = self.x_embedder.num_patches
         # Will use fixed sin-cos embedding:
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=False)
-
+        self.pos_embed_cond = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=False)
+        
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
         ])
@@ -271,6 +272,10 @@ class DiT(nn.Module):
         # Initialize (and freeze) pos_embed by sin-cos embedding:
         pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.x_embedder.num_patches ** 0.5))
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        
+        # Initialize (and freeze) pos_embed by sin-cos embedding:
+        pos_embed_cond = get_2d_sincos_pos_embed(self.pos_embed_cond.shape[-1], int(self.x_embedder.num_patches ** 0.5))
+        self.pos_embed_cond.data.copy_(torch.from_numpy(pos_embed_cond).float().unsqueeze(0))
 
         # Initialize patch_embed like nn.Linear (instead of nn.Conv2d):
         w = self.x_embedder.proj.weight.data
@@ -319,10 +324,10 @@ class DiT(nn.Module):
         """
         x = self.x_embedder(x) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
         t = self.t_embedder(t)                   # (N, D)
-        y = self.y_embedder(y, self.training)    # (N, D)
-        c = t + y                                # (N, D)
+        condition = self.x_embedder(y) + self.pos_embed_cond     # y = self.y_embedder(y, self.training)    # (N, D)
+        c = t + condition                          # (N, D)
         for block in self.blocks:
-            x = block(x, c)                      # (N, T, D)
+            x = block(x, c)                        # (N, T, D)
         x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)                   # (N, out_channels, H, W)
         return x
