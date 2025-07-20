@@ -18,84 +18,7 @@ from transformers import CLIPModel, CLIPProcessor
 from PIL import Image
 import numpy as np
 
-class CLIPEncoderWithMLP(nn.Module):
-    def __init__(self, clip_model_name="openai/clip-vit-base-patch32", 
-                 mlp_hidden_dim=1024, mlp_output_dim=1152, dropout=0.1):
-        """
-        CLIP encoder followed by MLP layer
-        
-        Args:
-            clip_model_name: Name of the CLIP model to use
-            mlp_hidden_dim: Hidden dimension of the MLP
-            mlp_output_dim: Output dimension of the MLP
-            dropout: Dropout rate for the MLP
-        """
-        super().__init__()
-        
-        # Load CLIP model and processor
-        self.clip_model = CLIPModel.from_pretrained(clip_model_name)
-        self.processor = CLIPProcessor.from_pretrained(clip_model_name)
-        
-        # Get CLIP vision embedding dimension
-        clip_dim = self.clip_model.config.vision_config.hidden_size
-        
-        # MLP layers
-        # self.mlp = nn.Sequential(
-        #     nn.Linear(clip_dim, mlp_hidden_dim),
-        #     nn.ReLU(),
-        #     nn.Dropout(dropout),
-        #     nn.Linear(mlp_hidden_dim, mlp_output_dim),
-        #     nn.LayerNorm(mlp_output_dim)
-        # )
-        self.mlp = nn.Linear(clip_dim, mlp_output_dim)
-        
-        # Freeze CLIP parameters - keep CLIP frozen, only train MLP
-        for param in self.clip_model.parameters():
-            param.requires_grad = False
-    
-    def forward(self, images):
-        """
-        Forward pass through CLIP encoder and MLP
-        
-        Args:
-            images: Preprocessed image tensor or list of PIL images
-            
-        Returns:
-            torch.Tensor: Output embeddings from MLP
-        """
-        # If images are PIL images, preprocess them
-        if isinstance(images, list) and isinstance(images[0], Image.Image):
-            inputs = self.processor(images=images, return_tensors="pt")
-            pixel_values = inputs.pixel_values
-        else:
-            pixel_values = images
-        
-        # Get CLIP vision embeddings (frozen, no gradients)
-        with torch.no_grad():
-            vision_outputs = self.clip_model.vision_model(pixel_values=pixel_values)
-            clip_embeddings = vision_outputs.pooler_output
-        
-        # Pass through trainable MLP
-        mlp_output = self.mlp(clip_embeddings)
-        
-        return mlp_output
-    
-    def encode_image(self, image_path):
-        """
-        Convenience method to encode a single image from file path
-        
-        Args:
-            image_path: Path to image file
-            
-        Returns:
-            torch.Tensor: Output embeddings
-        """
-        image = Image.open(image_path).convert('RGB')
-        inputs = self.processor(images=image, return_tensors="pt")
-        
-        with torch.no_grad():
-            return self.forward(inputs.pixel_values)
-        
+
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 
@@ -143,7 +66,18 @@ class TimestepEmbedder(nn.Module):
         t_emb = self.mlp(t_freq)
         return t_emb
 
-
+class CrossAttentionBlock(nn.Module):
+    """Cross-attention block to condition on source image features"""
+    def __init__(self, hidden_size, num_heads):
+        super().__init__()
+        self.norm = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
+        self.attn = nn.MultiheadAttention(hidden_size, num_heads, batch_first=True)
+        
+    def forward(self, x, context):
+        normalized_x = self.norm(x)
+        attended_x, _ = self.attn(normalized_x, context, context)
+        return x + attended_x
+    
 class LabelEmbedder(nn.Module):
     """
     Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
@@ -248,11 +182,16 @@ class DiT(nn.Module):
 
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
         self.t_embedder = TimestepEmbedder(hidden_size)
-        self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob) #CLIPEncoderWithMLP(mlp_output_dim=hidden_size) ####################################
+        # self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob)
         num_patches = self.x_embedder.num_patches
         # Will use fixed sin-cos embedding:
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=False)
         self.pos_embed_cond = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=False)
+        
+        # Cross-Attn Block
+        self.cross_blocks = nn.ModuleList([
+            CrossAttentionBlock(hidden_size, num_heads) for _ in range(depth)
+        ])
         
         self.blocks = nn.ModuleList([
             DiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
@@ -283,7 +222,7 @@ class DiT(nn.Module):
         nn.init.constant_(self.x_embedder.proj.bias, 0)
 
         # Initialize label embedding table:
-        nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02) # self.y_embedder.mlp.weight
+        # nn.init.normal_(self.y_embedder.embedding_table.weight, std=0.02) # self.y_embedder.mlp.weight
 
         # Initialize timestep embedding MLP:
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
@@ -326,9 +265,11 @@ class DiT(nn.Module):
         t = self.t_embedder(t)                   # (N, D)
         condition = self.x_embedder(y) + self.pos_embed_cond     # y = self.y_embedder(y, self.training)    # (N, D)
         print(condition.shape)
-        c = t + condition                          # (N, D)
-        for block in self.blocks:
-            x = block(x, c)                        # (N, T, D)
+        c = t                                    # (N, D)
+        for i in range(len(self.blocks)):
+            x = self.blocks[i](x, c)               # (N, T, D)
+            x = self.cross_blocks[i](x, condition, condition)
+            
         x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)                   # (N, out_channels, H, W)
         return x
