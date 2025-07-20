@@ -268,7 +268,7 @@ class DiT(nn.Module):
         c = t                                    # (N, D)
         for i in range(len(self.blocks)):
             x = self.blocks[i](x, c)               # (N, T, D)
-            x = self.cross_blocks[i](x, condition, condition)
+            x = self.cross_blocks[i](x, condition)
             
         x = self.final_layer(x, c)                # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)                   # (N, out_channels, H, W)
